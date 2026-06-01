@@ -66,7 +66,7 @@ def generate_llm_response(query: str, context: str) -> str:
         {query}
         """
         response = client.models.generate_content(
-            model="gemini-1.5-flash",
+            model="gemini-2.5-flash",
             contents=prompt
         )
         return response.text.strip()
