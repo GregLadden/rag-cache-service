@@ -52,10 +52,8 @@ def generate_llm_response(query: str, context: str) -> str:
         return mock_generate_answer(query, context)
         
     try:
-        # Simple client fallback or REST call to Gemini API to avoid dependency issues
-        import google.generativeai as genai
-        genai.configure(api_key=api_key)
-        model = genai.GenerativeModel("gemini-1.5-flash")
+        from google import genai
+        client = genai.Client(api_key=api_key)
         
         prompt = f"""
         You are a helpful assistant. Use the following piece of context to answer the user's question.
@@ -67,7 +65,10 @@ def generate_llm_response(query: str, context: str) -> str:
         Question:
         {query}
         """
-        response = model.generate_content(prompt)
+        response = client.models.generate_content(
+            model="gemini-1.5-flash",
+            contents=prompt
+        )
         return response.text.strip()
     except Exception as e:
         logger.error(f"Error calling Gemini API: {e}. Falling back to Mock Mode.")
