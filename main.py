@@ -36,10 +36,12 @@ document_counter = 0
 class QueryRequest(BaseModel):
     text: str
     threshold: float = 0.90
+    engine: str = "pytorch"
 
 class DocumentRequest(BaseModel):
     content: str
     metadata: dict = {}
+    engine: str = "pytorch"
 
 # Simple Mock LLM generator for offline testing if GEMINI_API_KEY is not set
 def mock_generate_answer(query: str, context: str) -> str:
@@ -80,11 +82,14 @@ async def handle_query(request: QueryRequest):
     """
     Main entrypoint for queries. Executes semantic cache lookup and falls back to RAG retrieval.
     """
+    import time
     query_text = request.text
     threshold = request.threshold
     
-    # 1. Convert incoming query text to vector embedding
-    query_vector = embedder.get_embedding(query_text)
+    # 1. Convert incoming query text to vector embedding, measuring latency
+    start_time = time.time()
+    query_vector = embedder.get_embedding(query_text, engine=request.engine)
+    latency_ms = round((time.time() - start_time) * 1000, 1)
     
     # 2. Check the semantic cache first
     cache_results = vector_store.search_cache(query_vector, threshold=threshold)
@@ -97,7 +102,12 @@ async def handle_query(request: QueryRequest):
             "source": "cache",
             "answer": cached_payload["answer"],
             "score": cache_results[0]["score"],
-            "trace": ["Cache Search: HIT"]
+            "embedding_engine": request.engine,
+            "embedding_latency_ms": latency_ms,
+            "trace": [
+                f"Embedding Generation ({request.engine.upper()}): {latency_ms}ms",
+                "Cache Search: HIT"
+            ]
         }
         
     # Cache Miss - retrieve from KB and generate response
@@ -123,7 +133,10 @@ async def handle_query(request: QueryRequest):
         "source": "llm",
         "answer": answer,
         "score": None,
+        "embedding_engine": request.engine,
+        "embedding_latency_ms": latency_ms,
         "trace": [
+            f"Embedding Generation ({request.engine.upper()}): {latency_ms}ms",
             "Cache Search: MISS",
             f"KB Retrieval: SUCCESS ({len(kb_results)} chunks found)",
             "LLM Generation: SUCCESS"
@@ -136,17 +149,27 @@ async def add_knowledge(doc: DocumentRequest):
     """
     Endpoint to populate the knowledge base with information chunks.
     """
+    import time
     global document_counter
     document_counter += 1
     
     text = doc.content
-    vector = embedder.get_embedding(text)
+    
+    # Generate text embedding, measuring latency
+    start_time = time.time()
+    vector = embedder.get_embedding(text, engine=doc.engine)
+    latency_ms = round((time.time() - start_time) * 1000, 1)
     
     # Save to Qdrant Knowledge Base
     payload = {"content": text, "metadata": doc.metadata}
     vector_store.upsert_knowledge(document_id=document_counter, vector=vector, payload=payload)
     
-    return {"message": "Document added to knowledge base", "id": document_counter}
+    return {
+        "message": "Document added to knowledge base", 
+        "id": document_counter,
+        "embedding_engine": doc.engine,
+        "embedding_latency_ms": latency_ms
+    }
 
 
 @app.post("/cache/clear")
