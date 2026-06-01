@@ -75,9 +75,9 @@ class EmbeddingService:
 
     def _encode_google(self, text: str) -> list[float]:
         client = self._get_google_client()
-        # Query text-embedding-004 model, truncating the output to 384 dimensions to match Qdrant schema
+        # Query gemini-embedding-001 model, truncating the output to 384 dimensions to match Qdrant schema
         response = client.models.embed_content(
-            model="text-embedding-004",
+            model="gemini-embedding-001",
             contents=text,
             config=types.EmbedContentConfig(
                 output_dimensionality=384
