@@ -16,16 +16,26 @@ A high-performance, asynchronous Python cognitive caching service designed to si
 ├── services/
 │   ├── embedder.py         # Dense vector generation (all-MiniLM-L6-v2)
 │   └── vector_store.py     # Qdrant client connection and query index rules
+├── Makefile                # Automation commands (setup, start, clean)
+├── requirements.txt        # Python dependency manifest
 └── .gitignore              # Python git exclusions
 ```
 
 ## Setup & Running
 
-1. **Install Dependencies**:
+1. **Setup Environment**:
+   Initialize the virtual environment and install all packages:
    ```bash
-   pip install fastapi uvicorn qdrant-client sentence-transformers pydantic
+   make setup
    ```
+
 2. **Start the Service**:
+   Run the FastAPI server on port 8000:
    ```bash
-   uvicorn main:app --reload --port 8000
+   make start
+   ```
+
+3. **Clean Cache files**:
+   ```bash
+   make clean
    ```
