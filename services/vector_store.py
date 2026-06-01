@@ -11,12 +11,13 @@ logger = logging.getLogger(__name__)
 class VectorStoreService:
     def __init__(self):
         qdrant_url = os.getenv("QDRANT_URL", ":memory:")
+        qdrant_api_key = os.getenv("QDRANT_API_KEY", None)
         logger.info(f"Connecting to Qdrant at: {qdrant_url}")
         
         if qdrant_url == ":memory:":
             self.client = QdrantClient(location=":memory:")
         elif qdrant_url.startswith("http://") or qdrant_url.startswith("https://"):
-            self.client = QdrantClient(url=qdrant_url)
+            self.client = QdrantClient(url=qdrant_url, api_key=qdrant_api_key)
         else:
             # Treat as local directory path for persistence (e.g. "./qdrant_db")
             self.client = QdrantClient(path=qdrant_url)
