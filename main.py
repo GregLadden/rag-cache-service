@@ -172,6 +172,58 @@ async def add_knowledge(doc: DocumentRequest):
     }
 
 
+class CacheUpsertRequest(BaseModel):
+    query: str
+    answer: str
+    engine: str = "pytorch"
+
+
+@app.post("/cache/lookup")
+async def lookup_cache(request: QueryRequest):
+    """
+    Check if a query has a semantic cache match without invoking the LLM on a miss.
+    """
+    query_text = request.text
+    threshold = request.threshold
+    
+    try:
+        query_vector = embedder.get_embedding(query_text, engine=request.engine)
+        cache_results = vector_store.search_cache(query_vector, threshold=threshold)
+        
+        if cache_results:
+            cached_payload = cache_results[0]["payload"]
+            return {
+                "hit": True,
+                "answer": cached_payload["answer"],
+                "score": cache_results[0]["score"]
+            }
+    except Exception as e:
+        logger.error(f"Error checking semantic cache: {e}")
+        
+    return {
+        "hit": False
+    }
+
+
+@app.post("/cache/upsert")
+async def upsert_cache_item(req: CacheUpsertRequest):
+    """
+    Manually insert a query-answer pair into the semantic cache.
+    """
+    try:
+        query_vector = embedder.get_embedding(req.query, engine=req.engine)
+        cache_id = str(uuid.uuid4())
+        vector_store.upsert_cache(
+            cache_id=cache_id,
+            vector=query_vector,
+            payload={"query": req.query, "answer": req.answer}
+        )
+        return {"message": "Saved to semantic cache successfully"}
+    except Exception as e:
+        logger.error(f"Error saving to semantic cache: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.post("/cache/clear")
 async def clear_cache():
     """
